@@ -1,0 +1,2 @@
+345345;sofia;burgas;
+234234;sofia;plovdiv;
