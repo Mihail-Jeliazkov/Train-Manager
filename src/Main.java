@@ -323,7 +323,7 @@ public class Main extends JFrame {
         } else {
             for (Train train : trains) {
                 result.append(train.toString()).append("\n");
-                result.append("Route: ").append(String.join(" → ", train.getStations())).append("\n\n");
+                result.append("Route: ").append(String.join(" - ", train.getStations())).append("\n\n");
             }
         }
         
@@ -346,9 +346,9 @@ public class Main extends JFrame {
         if (route.isEmpty()) {
             result.append("No route found (max 1 transfer allowed).");
         } else if (route.size() == 2) {
-            result.append("Direct route: ").append(String.join(" → ", route));
+            result.append("Direct route: ").append(String.join(" - ", route));
         } else if (route.size() == 3) {
-            result.append("Route with 1 transfer: ").append(String.join(" → ", route));
+            result.append("Route with 1 transfer: ").append(String.join(" - ", route));
             result.append("\nTransfer at: ").append(route.get(1));
         }
         
@@ -383,12 +383,9 @@ public class Main extends JFrame {
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeel());
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
             new Main().setVisible(true);
         });
     }
 }
+
+// Martin Pancharevski 11:45

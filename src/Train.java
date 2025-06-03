@@ -32,6 +32,6 @@ public class Train {
 
     @Override
     public String toString() {
-        return name + " (" + startStation + " → " + endStation + ")";
+        return name + " (" + startStation + " - " + endStation + ")";
     }
 }
