@@ -1,135 +1,173 @@
-import javax.swing.*;
-import javax.swing.border.TitledBorder;
-import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class TrainManager {
+
     private List<Train> trains;
-    private Graph graph;
+    private final CustomGraph<String> stationGraph;
+    private static final String SAVE_FILE = "trains.txt";
 
     public TrainManager() {
-        trains = new ArrayList<>();
-        graph = new Graph();
-    }
-
-    public void addTrain(Train train) throws Exception {
-        for (Train t : trains) {
-            if (t.getName().equalsIgnoreCase(train.getName())) {
-                throw new Exception("Train with this name already exists!");
-            }
-        }
-        
-        List<String> stations = train.getStations();
-        if (stations.size() < 2) {
-            throw new Exception("Train must have at least 2 stations!");
-        }
-        
-        Set<String> uniqueStations = new HashSet<>(stations);
-        if (uniqueStations.size() != stations.size()) {
-            throw new Exception("Duplicate stations found in route!");
-        }
-        
-        trains.add(train);
-        graph.addTrain(train);
-    }
-
-    public void removeTrain(Train train) {
-        trains.remove(train);
-        graph.removeTrain(train);
-        rebuildGraph();
-    }
-
-    public void updateTrain(Train oldTrain, Train newTrain) throws Exception {
-        removeTrain(oldTrain);
-        try {
-            addTrain(newTrain);
-        } catch (Exception e) {
-            addTrain(oldTrain);
-            throw e;
-        }
-    }
-
-    private void rebuildGraph() {
-        graph = new Graph();
-        for (Train train : trains) {
-            graph.addTrain(train);
-        }
+        this.trains = new ArrayList<>();
+        this.stationGraph = new CustomGraph<>();
+        loadFromFile();
     }
 
     public List<Train> getTrains() {
-        return new ArrayList<>(trains);
+        return trains;
     }
 
-    public List<Train> getTrainsByStation(String station) {
-        List<Train> result = new ArrayList<>();
+    public boolean addTrain(Train train) {
+        if (trains.contains(train)) {
+            return false;
+        }
+        trains.add(train);
+        rebuildGraph();
+        return true;
+    }
+
+    public void removeTrain(String trainName) {
+        trains.removeIf(train -> train.getName().equalsIgnoreCase(trainName));
+        rebuildGraph();
+    }
+
+    public void updateTrain(String oldTrainName, Train newTrain) {
+        removeTrain(oldTrainName);
+        addTrain(newTrain);
+    }
+
+    private void rebuildGraph() {
+        stationGraph.clear();
         for (Train train : trains) {
-            if (train.getStations().contains(station)) {
-                result.add(train);
+            List<String> stations = train.getStations();
+            if (stations.size() < 2)
+                continue;
+
+            for (int i = 0; i < stations.size() - 1; i++) {
+                stationGraph.addEdge(stations.get(i), stations.get(i + 1));
             }
         }
-        return result;
     }
 
-    public List<String> findRoute(String start, String end) {
-        return graph.findRoute(start, end);
+    public List<Train> findTrainsByStation(String stationName) {
+        return trains.stream()
+                .filter(train -> train.getStations().stream()
+                        .anyMatch(s -> s.equalsIgnoreCase(stationName)))
+                .collect(Collectors.toList());
     }
 
-    public void sortByStationCount() {
-        for (int i = 1; i < trains.size(); i++) {
-            Train key = trains.get(i);
-            int j = i - 1;
-            while (j >= 0 && trains.get(j).getStations().size() > key.getStations().size()) {
-                trains.set(j + 1, trains.get(j));
-                j--;
+    public Train findDirectRoute(String start, String end) {
+        for (Train train : trains) {
+            List<String> stations = train.getStations();
+            int startIndex = -1;
+            int endIndex = -1;
+            for (int i = 0; i < stations.size(); i++) {
+                if (stations.get(i).equalsIgnoreCase(start))
+                    startIndex = i;
+                if (stations.get(i).equalsIgnoreCase(end))
+                    endIndex = i;
             }
-            trains.set(j + 1, key);
+
+            if (startIndex != -1 && endIndex != -1 && startIndex < endIndex) {
+                return train;
+            }
         }
+        return null;
     }
 
-    public void sortByStartStation() {
+    public List<Train> findRouteWithOneTransfer(String start, String end) {
+        List<Train> trainsFromStart = findTrainsByStation(start);
+
+        for (Train train1 : trainsFromStart) {
+            List<String> stations1 = train1.getStations();
+            int startIndex = stations1.indexOf(start);
+
+            for (int i = startIndex + 1; i < stations1.size(); i++) {
+                String transferStation = stations1.get(i);
+
+                Train train2 = findDirectRoute(transferStation, end);
+
+                if (train2 != null && !train1.getName().equals(train2.getName())) {
+                    List<Train> result = new ArrayList<>();
+                    result.add(train1);
+                    result.add(train2);
+                    return result;
+                }
+            }
+        }
+        return new ArrayList<>();
+    }
+
+    public void sortTrainsByName() {
         for (int i = 1; i < trains.size(); i++) {
             Train key = trains.get(i);
             int j = i - 1;
             while (j >= 0 && trains.get(j).getStartStation().compareToIgnoreCase(key.getStartStation()) > 0) {
                 trains.set(j + 1, trains.get(j));
-                j--;
+                j = j - 1;
             }
             trains.set(j + 1, key);
         }
     }
 
-    public void saveToFile(String filename) throws IOException {
-        try (PrintWriter writer = new PrintWriter(new FileWriter(filename))) {
-            for (Train train : trains) {
-                writer.println(train.getName() + "|" + train.getStartStation() + "|" + 
-                              train.getEndStation() + "|" + String.join(",", train.getStations()));
+    public void sortByNumberOfStops() {
+        for (int i = 1; i < trains.size(); i++) {
+            Train key = trains.get(i);
+            int j = i - 1;
+            while (j >= 0 && trains.get(j).getNumberOfStops() > key.getNumberOfStops()) {
+                trains.set(j + 1, trains.get(j));
+                j = j - 1;
             }
+            trains.set(j + 1, key);
         }
     }
 
-    public void loadFromFile(String filename) throws IOException {
-        trains.clear();
-        graph = new Graph();
-        
-        try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
+    public void saveToFile() {
+        try (PrintWriter writer = new PrintWriter(new FileWriter(SAVE_FILE))) {
+            for (Train train : trains) {
+                String line = train.getName() + ":" + String.join(",", train.getStations());
+                writer.println(line);
+            }
+        } catch (IOException e) {
+            System.err.println("Error saving trains to file: " + e.getMessage());
+        }
+    }
+
+    private void loadFromFile() {
+        File file = new File(SAVE_FILE);
+        if (!file.exists()) {
+            createDefaultData();
+            return;
+        }
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
+            trains.clear();
             while ((line = reader.readLine()) != null) {
-                String[] parts = line.split("\\|");
-                if (parts.length == 4) {
+                String[] parts = line.split(":", 2);
+                if (parts.length == 2) {
                     String name = parts[0];
-                    String start = parts[1];
-                    String end = parts[2];
-                    List<String> stations = Arrays.asList(parts[3].split(","));
-                    
-                    Train train = new Train(name, start, end, stations);
-                    trains.add(train);
-                    graph.addTrain(train);
+                    List<String> stations = new ArrayList<>(Arrays.asList(parts[1].split(",")));
+                    trains.add(new Train(name, stations));
                 }
             }
+            rebuildGraph();
+        } catch (IOException e) {
+            System.err.println("Error loading trains from file: " + e.getMessage());
+            createDefaultData();
         }
+    }
+
+    private void createDefaultData() {
+        this.trains = new ArrayList<>();
+        addTrain(new Train("Express 101", Arrays.asList("New York", "Philadelphia", "Baltimore", "Washington D.C.")));
+        addTrain(new Train("West Coast Line", Arrays.asList("Los Angeles", "San Jose", "San Francisco", "Sacramento")));
+        addTrain(new Train("Cross Country 45", Arrays.asList("Chicago", "Omaha", "Denver", "Salt Lake City")));
+        addTrain(new Train("Texas Eagle", Arrays.asList("Chicago", "St. Louis", "Dallas", "San Antonio")));
+        addTrain(new Train("Florida Flyer", Arrays.asList("Miami", "Orlando", "Jacksonville")));
+        rebuildGraph();
     }
 }

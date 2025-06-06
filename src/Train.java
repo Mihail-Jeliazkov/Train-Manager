@@ -1,37 +1,63 @@
-import javax.swing.*;
-import javax.swing.border.TitledBorder;
-import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.io.*;
-import java.util.*;
 import java.util.List;
+import java.util.Objects;
+import java.util.StringJoiner;
 
 public class Train {
-    private String name;
-    private String startStation;
-    private String endStation;
-    private List<String> stations;
+    private final String name;
+    private final List<String> stations;
 
-    public Train(String name, String startStation, String endStation, List<String> stations) {
+    public Train(String name, List<String> stations) {
         this.name = name;
-        this.startStation = startStation;
-        this.endStation = endStation;
-        this.stations = new ArrayList<>(stations);
+        this.stations = stations;
     }
 
-    public String getName() { return name; }
-    public String getStartStation() { return startStation; }
-    public String getEndStation() { return endStation; }
-    public List<String> getStations() { return new ArrayList<>(stations); }
+    public String getName() {
+        return name;
+    }
 
-    public void setName(String name) { this.name = name; }
-    public void setStartStation(String startStation) { this.startStation = startStation; }
-    public void setEndStation(String endStation) { this.endStation = endStation; }
-    public void setStations(List<String> stations) { this.stations = new ArrayList<>(stations); }
+    public List<String> getStations() {
+        return stations;
+    }
+
+    public String getStartStation() {
+        if (stations == null || stations.isEmpty()) {
+            return "N/A";
+        }
+        return stations.get(0);
+    }
+
+    public String getEndStation() {
+        if (stations == null || stations.isEmpty()) {
+            return "N/A";
+        }
+        return stations.get(stations.size() - 1);
+    }
+
+    public int getNumberOfStops() {
+        return stations.size();
+    }
 
     @Override
     public String toString() {
-        return name + " (" + startStation + " - " + endStation + ")";
+        StringJoiner sj = new StringJoiner(", ");
+        for (String station : stations) {
+            sj.add(station);
+        }
+        return String.format("%s (%d stops): %s", name, getNumberOfStops(), sj);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+        Train train = (Train) o;
+        return name.equalsIgnoreCase(train.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name.toLowerCase());
     }
 }
